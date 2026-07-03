@@ -23,10 +23,23 @@ def slugify(text: str) -> str:
     return text[:60] or "post"
 
 
+def yaml_quote(text: str) -> str:
+    text = text.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{text}"'
+
+
+def normalize_tags(raw: str):
+    if not raw:
+        return []
+    return [tag.strip() for tag in raw.split(",") if tag.strip()]
+
+
 def main():
     parser = argparse.ArgumentParser(description="Publish a Markdown post to Quartz blog.")
     parser.add_argument("--title", required=True, help="Post title")
     parser.add_argument("--body", required=True, help="Post body markdown")
+    parser.add_argument("--description", default="", help="Post description")
+    parser.add_argument("--tags", default="", help="Comma-separated tags, e.g. openclaw,automation,quartz")
     parser.add_argument("--push", action="store_true", help="Push to GitHub after commit")
     args = parser.parse_args()
 
@@ -40,10 +53,25 @@ def main():
         now = datetime.now().strftime("%H%M%S")
         path = CONTENT_DIR / f"{today}-{slug}-{now}.md"
 
-    markdown = f"""---
-title: {args.title}
-date: {today}
----
+    tags = normalize_tags(args.tags)
+    tag_lines = "\n".join([f"  - {tag}" for tag in tags]) if tags else ""
+
+    frontmatter = [
+        "---",
+        f"title: {yaml_quote(args.title)}",
+        f"date: {today}",
+    ]
+
+    if args.description:
+        frontmatter.append(f"description: {yaml_quote(args.description)}")
+
+    if tags:
+        frontmatter.append("tags:")
+        frontmatter.append(tag_lines)
+
+    frontmatter.append("---")
+
+    markdown = "\n".join(frontmatter) + f"""
 
 # {args.title}
 
